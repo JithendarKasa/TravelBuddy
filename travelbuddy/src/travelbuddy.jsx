@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
-import { Search, MapPin, Star, List, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Search, MapPin, Star, List, ThumbsUp, ThumbsDown, Tag } from 'lucide-react';
 
 const TravelBuddy = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [hotels, setHotels] = useState([]);
   const [error, setError] = useState(null);
+
+  // Location tags
+  const locationTags = ['Amsterdam', 'London', 'Barcelona', 'Vienna', 'Milan', 'Paris'];
+
+  // Feature tags from Excel data
+  const featureTags = [
+    'Leisure trip',
+    'Couple',
+    'Business trip',
+    'Solo traveler',
+    'Family with young children',
+    'Group'
+  ];
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -19,11 +32,11 @@ const TravelBuddy = () => {
       const result = await response.json();
       console.log('Search results:', result);
       
-      if (result.recommended_hotels && result.recommended_hotels.length > 0) {
+      if (result.status === 'success' && result.recommended_hotels?.length > 0) {
         setHotels(result.recommended_hotels);
       } else {
         setHotels([]);
-        setError('No hotels found');
+        setError('No hotels found for this search');
       }
     } catch (err) {
       console.error('Search error:', err);
@@ -33,9 +46,49 @@ const TravelBuddy = () => {
     }
   };
 
-  const handleTagClick = (tag) => {
-    setSearchQuery(tag);
-    handleSearch({ preventDefault: () => {} });
+  const handleTagClick = async (tag) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const endpoint = locationTags.includes(tag) ? 'location' : 'tags';
+      const response = await fetch(`http://127.0.0.1:5000/api/recommendations/${endpoint}/${encodeURIComponent(tag)}`);
+      const result = await response.json();
+      console.log(`${endpoint} search results:`, result);
+
+      if (result.status === 'success' && result.recommended_hotels?.length > 0) {
+        setHotels(result.recommended_hotels);
+      } else {
+        setHotels([]);
+        setError(`No hotels found for ${tag}`);
+      }
+    } catch (err) {
+      console.error('Tag search error:', err);
+      setError('Failed to fetch hotels. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderReviewContent = (review) => {
+    if (typeof review === 'string' && review.trim() !== '') {
+      const trimmedReview = review.length > 300 ? `${review.substring(0, 300)}...` : review;
+      return <div className="review-content">{trimmedReview}</div>;
+    }
+    return null;
+  };
+
+  const getReviewText = (hotel, type) => {
+    const review = type === 'positive' ? hotel.positive_review : hotel.negative_review;
+    if (!review) return null;
+    
+    // If review is inside a recent_reviews array
+    if (hotel.recent_reviews && hotel.recent_reviews.length > 0) {
+      const recentReview = hotel.recent_reviews[0];
+      return type === 'positive' ? recentReview.positive : recentReview.negative;
+    }
+    
+    return review;
   };
 
   return (
@@ -61,30 +114,59 @@ const TravelBuddy = () => {
           </div>
         </form>
 
-        <div className="tags-container">
-          {['Amsterdam', 'London', 'Barcelona', 'Vienna', 'Milan'].map((tag) => (
-            <button 
-              key={tag} 
-              className="tag-button"
-              onClick={() => handleTagClick(tag)}
-            >
-              {tag}
-            </button>
-          ))}
+        <div className="tags-section">
+          <h3 className="tags-title">Popular Destinations</h3>
+          <div className="tags-container">
+            {locationTags.map((tag) => (
+              <button 
+                key={tag} 
+                className="tag-button"
+                onClick={() => handleTagClick(tag)}
+              >
+                <MapPin size={14} className="mr-1" />
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="tags-section">
+          <h3 className="tags-title">Search by Type</h3>
+          <div className="tags-container">
+            {featureTags.map((tag) => (
+              <button 
+                key={tag} 
+                className="tag-button"
+                onClick={() => handleTagClick(tag)}
+              >
+                <Tag size={14} className="mr-1" />
+                {tag}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {loading && <div className="loading">Loading...</div>}
-      {error && <div className="error">{error}</div>}
+      {loading && (
+        <div className="loading">
+          Loading hotels...
+        </div>
+      )}
+      
+      {error && (
+        <div className="error">
+          {error}
+        </div>
+      )}
 
       <div className="hotel-grid">
         {hotels.map((hotel, index) => (
-          <div key={index} className="hotel-card">
+          <div key={`${hotel.name}-${index}`} className="hotel-card">
             <div className="hotel-header">
               <h2 className="hotel-name">{hotel.name}</h2>
               <div className="rating">
                 <Star className="fill-current" size={20} />
-                <span>{parseFloat(hotel.rating).toFixed(1)}</span>
+                <span>{typeof hotel.rating === 'number' ? hotel.rating.toFixed(1) : 'N/A'}</span>
               </div>
             </div>
 
@@ -98,37 +180,43 @@ const TravelBuddy = () => {
               <span>{hotel.total_reviews || 0} Reviews</span>
             </div>
 
-            {hotel.recent_review && (
-              <>
-                <div className="review-section highlights">
-                  <div className="review-header">
-                    <ThumbsUp size={18} />
-                    <span>Highlights</span>
-                  </div>
-                  <ul className="review-list">
-                    <li>{hotel.recent_review.positive || 'No positive review available'}</li>
-                  </ul>
+            {getReviewText(hotel, 'positive') && (
+              <div className="review-section highlights">
+                <div className="review-header">
+                  <ThumbsUp size={18} />
+                  <span>Highlights</span>
                 </div>
+                {renderReviewContent(getReviewText(hotel, 'positive'))}
+              </div>
+            )}
 
-                <div className="review-section consider">
-                  <div className="review-header">
-                    <ThumbsDown size={18} />
-                    <span>Consider</span>
-                  </div>
-                  <ul className="review-list">
-                    <li>{hotel.recent_review.negative || 'No negative review available'}</li>
-                  </ul>
+            {getReviewText(hotel, 'negative') && (
+              <div className="review-section consider">
+                <div className="review-header">
+                  <ThumbsDown size={18} />
+                  <span>Consider</span>
                 </div>
-              </>
+                {renderReviewContent(getReviewText(hotel, 'negative'))}
+              </div>
             )}
 
             {hotel.tags && (
               <div className="hotel-tags">
-                {hotel.tags.split(',').map((tag, idx) => (
-                  <span key={idx} className="hotel-tag">
-                    {tag.trim()}
-                  </span>
-                ))}
+                <div className="review-header">
+                  <Tag size={18} />
+                  <span>Features</span>
+                </div>
+                <div className="tags-content">
+                  {hotel.tags.split(',').map((tag, idx) => (
+                    <span 
+                      key={idx} 
+                      className="hotel-tag"
+                      onClick={() => handleTagClick(tag.trim())}
+                    >
+                      {tag.trim()}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
           </div>

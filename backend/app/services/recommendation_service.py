@@ -2,18 +2,38 @@ class RecommendationService:
     def __init__(self, neo4j_model):
         self.neo4j_model = neo4j_model
     
-    def get_hotel_recommendations(self, hotel_name):
+    def get_recommendations(self, params):
+        """Get hotel recommendations based on various parameters"""
         try:
-            similar_hotels = self.neo4j_model.get_similar_hotels(hotel_name)
-            return similar_hotels
-        except Exception as e:
-            print(f"Error in recommendation service: {str(e)}")
-            raise e
+            results = {}
+            
+            # Get location-based recommendations
+            if 'city' in params:
+                results['city_recommendations'] = self.neo4j_model.get_location_based_recommendations(
+                    params['city']
+                )
 
-    def get_location_recommendations(self, city):
-        try:
-            location_hotels = self.neo4j_model.get_location_based_recommendations(city)
-            return location_hotels
+            # Get similar hotels if a hotel is specified
+            if 'hotel_name' in params:
+                results['similar_hotels'] = self.neo4j_model.get_similar_hotels_by_reviewers(
+                    params['hotel_name']
+                )
+
+            # Get personalized recommendations if nationality is provided
+            if 'nationality' in params:
+                results['personalized'] = self.neo4j_model.get_personalized_recommendations(
+                    params['nationality'],
+                    params.get('preferences', [])
+                )
+
+            return {
+                'status': 'success',
+                'recommendations': results
+            }
+            
         except Exception as e:
             print(f"Error in recommendation service: {str(e)}")
-            raise e
+            return {
+                'status': 'error',
+                'message': str(e)
+            }

@@ -255,3 +255,56 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.tags-title {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.mr-1 {
+  margin-right: 0.25rem;
+}
+
+.tags-container {
+  margin-bottom: 1.5rem;
+}
+
+.review-content {
+  background-color: var(--hover-color);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.tags-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tags-section {
+  margin-bottom: 1.5rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  background-color: var(--hover-color);
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.error {
+  text-align: center;
+  padding: 1rem;
+  background-color: #FEE2E2;
+  color: #DC2626;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
