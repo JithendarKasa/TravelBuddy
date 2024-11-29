@@ -1,12 +1,9 @@
 import React from 'react';
+import './App.css';  // Make sure CSS is imported
 import TravelBuddy from './travelbuddy';
 
-const App = () => {
-  return (
-    <div>
-      <TravelBuddy />
-    </div>
-  );
-};
+function App() {
+  return <TravelBuddy />;
+}
 
 export default App;
