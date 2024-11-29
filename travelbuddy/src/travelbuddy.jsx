@@ -1,31 +1,77 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Star, List, ThumbsUp, ThumbsDown } from 'lucide-react';
+
+const API_BASE_URL = 'http://127.0.0.1:5000/api';
 
 const TravelBuddy = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  
-  const hotels = [
-    {
-      id: 1,
-      name: "Grand Hotel Europa",
-      location: "Paris, France",
-      rating: 4.5,
-      reviews: 245,
-      positiveReviews: ["Great breakfast!", "Excellent location"],
-      negativeReviews: ["Room was small"],
-      tags: ["family-friendly", "central location"]
-    },
-    {
-      id: 2,
-      name: "Royal Gardens Hotel",
-      location: "London, UK",
-      rating: 4.8,
-      reviews: 189,
-      positiveReviews: ["Amazing staff", "Beautiful garden view"],
-      negativeReviews: ["Expensive parking"],
-      tags: ["luxury", "business-friendly"]
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [hotels, setHotels] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const tags = ['family-friendly', 'business', 'luxury', 'beach', 'city center'];
+
+  // Function to fetch hotels from backend
+  const searchHotels = async (query, tags) => {
+    try {
+      setLoading(true);
+      const queryParams = new URLSearchParams();
+      
+      if (query) {
+        queryParams.append('search_text', query);
+      }
+      
+      tags.forEach(tag => {
+        queryParams.append('features', tag);
+      });
+
+      const response = await fetch(`${API_BASE_URL}/hotels/search?${queryParams}`);
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        // Transform the data to match your UI structure
+        const transformedHotels = data.results.map((hotel, index) => ({
+          id: index + 1,
+          name: hotel.name,
+          location: hotel.location,
+          rating: hotel.averageReviewScore,
+          reviews: hotel.reviewCount,
+          positiveReviews: hotel.highlights || [],
+          negativeReviews: hotel.considerations || [],
+          tags: hotel.tags || []
+        }));
+
+        setHotels(transformedHotels);
+      } else {
+        setError(data.message);
+      }
+    } catch (err) {
+      setError('Failed to fetch hotels. Please try again.');
+      console.error('Error fetching hotels:', err);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Handle tag selection
+  const toggleTag = (tag) => {
+    setSelectedTags(prev => {
+      if (prev.includes(tag)) {
+        return prev.filter(t => t !== tag);
+      }
+      return [...prev, tag];
+    });
+  };
+
+  // Search when tags or query changes
+  useEffect(() => {
+    const delayDebounce = setTimeout(() => {
+      searchHotels(searchQuery, selectedTags);
+    }, 500); // Debounce search for 500ms
+
+    return () => clearTimeout(delayDebounce);
+  }, [searchQuery, selectedTags]);
 
   return (
     <div className="container">
@@ -47,13 +93,27 @@ const TravelBuddy = () => {
         </div>
 
         <div className="tags-container">
-          {['family-friendly', 'business', 'luxury', 'beach', 'city center'].map((tag) => (
-            <button key={tag} className="tag-button">
+          {tags.map((tag) => (
+            <button
+              key={tag}
+              className={`tag-button ${selectedTags.includes(tag) ? 'selected' : ''}`}
+              onClick={() => toggleTag(tag)}
+            >
               {tag}
             </button>
           ))}
         </div>
       </div>
+
+      {loading && (
+        <div className="loading">Loading hotels...</div>
+      )}
+
+      {error && (
+        <div className="error-message">
+          {error}
+        </div>
+      )}
 
       <div className="hotel-grid">
         {hotels.map((hotel) => (
@@ -76,29 +136,33 @@ const TravelBuddy = () => {
               <span>{hotel.reviews} Reviews</span>
             </div>
 
-            <div className="review-section highlights">
-              <div className="review-header">
-                <ThumbsUp size={18} />
-                <span>Highlights</span>
+            {hotel.positiveReviews.length > 0 && (
+              <div className="review-section highlights">
+                <div className="review-header">
+                  <ThumbsUp size={18} />
+                  <span>Highlights</span>
+                </div>
+                <ul className="review-list">
+                  {hotel.positiveReviews.map((review, idx) => (
+                    <li key={idx}>{review}</li>
+                  ))}
+                </ul>
               </div>
-              <ul className="review-list">
-                {hotel.positiveReviews.map((review, idx) => (
-                  <li key={idx}>{review}</li>
-                ))}
-              </ul>
-            </div>
+            )}
 
-            <div className="review-section consider">
-              <div className="review-header">
-                <ThumbsDown size={18} />
-                <span>Consider</span>
+            {hotel.negativeReviews.length > 0 && (
+              <div className="review-section consider">
+                <div className="review-header">
+                  <ThumbsDown size={18} />
+                  <span>Consider</span>
+                </div>
+                <ul className="review-list">
+                  {hotel.negativeReviews.map((review, idx) => (
+                    <li key={idx}>{review}</li>
+                  ))}
+                </ul>
               </div>
-              <ul className="review-list">
-                {hotel.negativeReviews.map((review, idx) => (
-                  <li key={idx}>{review}</li>
-                ))}
-              </ul>
-            </div>
+            )}
 
             <div className="hotel-tags">
               {hotel.tags.map((tag, idx) => (
