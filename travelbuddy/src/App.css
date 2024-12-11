@@ -7,6 +7,8 @@
   --text-secondary: #4b5563;
   --border-color: #e5e7eb;
   --hover-color: #f3f4f6;
+  --error-color: #ef4444;
+  --success-color: #16a34a;
 }
 
 * {
@@ -61,7 +63,8 @@ body {
   border-radius: 0.75rem;
   font-size: 1rem;
   transition: all 0.2s;
-  background-color: white;
+  background-color: white;  /* Keep white background */
+  color: #111827;          /* Changed from white to dark color */
 }
 
 .search-input:focus {
@@ -70,12 +73,44 @@ body {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.search-icon {
+.search-button {
   position: absolute;
-  left: 1rem;
+  right: 1rem;
   top: 50%;
   transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+}
+
+.search-button:hover {
+  background-color: var(--hover-color);
+}
+
+.search-icon {
   color: var(--text-secondary);
+}
+
+/* Loading and Error States */
+.loading, .error {
+  text-align: center;
+  padding: 2rem;
+  margin: 1rem 0;
+  border-radius: 0.5rem;
+}
+
+.loading {
+  color: var(--text-secondary);
+  background-color: var(--hover-color);
+}
+
+.error {
+  color: var(--error-color);
+  background-color: #fef2f2;
+  border: 1px solid #fee2e2;
 }
 
 /* Tags */
@@ -83,6 +118,7 @@ body {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+  margin-top: 1rem;
 }
 
 .tag-button {
@@ -97,8 +133,9 @@ body {
 }
 
 .tag-button:hover {
-  background-color: var(--hover-color);
-  border-color: var(--text-secondary);
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
 }
 
 /* Hotel Cards */
@@ -106,6 +143,7 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.5rem;
+  margin-top: 2rem;
 }
 
 @media (min-width: 768px) {
@@ -174,28 +212,101 @@ body {
 }
 
 .highlights .review-header {
-  color: #16a34a;
+  color: var(--success-color);
 }
 
 .consider .review-header {
-  color: #dc2626;
+  color: var(--error-color);
 }
 
 .review-list {
   padding-left: 2rem;
   color: var(--text-secondary);
+  list-style-type: none;
+}
+
+.review-list li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
 }
 
 .hotel-tags {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
 }
 
 .hotel-tag {
-  background-color: #f3f4f6;
+  background-color: var(--hover-color);
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
+
+/* Responsive text truncation */
+.review-list li {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tags-title {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.mr-1 {
+  margin-right: 0.25rem;
+}
+
+.tags-container {
+  margin-bottom: 1.5rem;
+}
+
+.review-content {
+  background-color: var(--hover-color);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.tags-content {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tags-section {
+  margin-bottom: 1.5rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  background-color: var(--hover-color);
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.error {
+  text-align: center;
+  padding: 1rem;
+  background-color: #FEE2E2;
+  color: #DC2626;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+
