@@ -7,12 +7,11 @@ const TravelBuddy = () => {
   const [hotels, setHotels] = useState([]);
   const [similarHotels, setSimilarHotels] = useState([]);
   const [error, setError] = useState(null);
-  const [selectedNationality, setSelectedNationality] = useState('');
 
-  // Location tags
+  // Popular destinations
   const locationTags = ['Amsterdam', 'London', 'Barcelona', 'Vienna', 'Milan', 'Paris'];
 
-  // Feature tags from Excel data
+  // Travel types/features
   const featureTags = [
     'Leisure trip',
     'Couple',
@@ -22,72 +21,63 @@ const TravelBuddy = () => {
     'Group'
   ];
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`http://127.0.0.1:5000/api/recommendations/location/${encodeURIComponent(searchQuery)}`);
-      const result = await response.json();
-      console.log('Search results:', result);
-
-      if (result.status === 'success' && result.recommended_hotels?.length > 0) {
-        setHotels(result.recommended_hotels);
-      } else {
-        setHotels([]);
-        setError('No hotels found for this search');
-      }
-    } catch (err) {
-      console.error('Search error:', err);
-      setError('Failed to fetch hotels. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Handle location or feature-based search
   const handleTagClick = async (tag) => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      let endpoint;
-      if (locationTags.includes(tag)) {
-        endpoint = `location/${encodeURIComponent(tag)}`;
-      } else if (featureTags.includes(tag)) {
-        endpoint = `tags/${encodeURIComponent(tag)}`;
-      } else {
-        endpoint = `personalized?trip_type=${encodeURIComponent(tag)}`;
-      }
-  
+      const endpoint = locationTags.includes(tag)
+        ? `location/${encodeURIComponent(tag)}`
+        : `travel-type/${encodeURIComponent(tag)}`;
       const response = await fetch(`http://127.0.0.1:5000/api/recommendations/${endpoint}`);
       const result = await response.json();
-  
-      if (result.status === 'error') {
-        throw new Error(result.message);
-      }
-  
-      if (result.recommended_hotels?.length > 0) {
+
+      if (result.status === 'success' && result.recommended_hotels?.length > 0) {
         setHotels(result.recommended_hotels);
       } else {
         setHotels([]);
         setError(`No hotels found for ${tag}`);
       }
     } catch (err) {
-      console.error('Tag search error:', err);
-      setError('Failed to fetch hotels. Please try again.');
+      console.error('Error fetching tag-based recommendations:', err);
+      setError('Failed to fetch recommendations. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const getSimilarHotels = async (hotelName) => {
+  // Handle personalized recommendations
+  const fetchPersonalizedRecommendations = async (preferences) => {
+    setLoading(true);
+    setError(null);
+
     try {
-      const response = await fetch(
-        `http://127.0.0.1:5000/api/recommendations/similar/${encodeURIComponent(hotelName)}`
-      );
+      const response = await fetch('http://127.0.0.1:5000/api/recommendations/personalized', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(preferences),
+      });
+      const result = await response.json();
+
+      if (result.status === 'success' && result.recommended_hotels?.length > 0) {
+        setHotels(result.recommended_hotels);
+      } else {
+        setHotels([]);
+        setError('No personalized recommendations found.');
+      }
+    } catch (err) {
+      console.error('Error fetching personalized recommendations:', err);
+      setError('Failed to fetch recommendations. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch similar hotels
+  const fetchSimilarHotels = async (hotelName) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:5000/api/recommendations/similar/${encodeURIComponent(hotelName)}`);
       const result = await response.json();
 
       if (result.status === 'success' && result.similar_hotels?.length > 0) {
@@ -98,182 +88,86 @@ const TravelBuddy = () => {
     }
   };
 
-  const handleHotelClick = async (hotelName) => {
-    await getSimilarHotels(hotelName);
-    // You might want to show these in a modal or a separate section
-  };
-
+  // Render review content with trimming
   const renderReviewContent = (review) => {
-    if (typeof review === 'string' && review.trim() !== '') {
-      const trimmedReview = review.length > 300 ? `${review.substring(0, 300)}...` : review;
-      return <div className="review-content">{trimmedReview}</div>;
-    }
-    return null;
+    if (!review || typeof review !== 'string') return null;
+    const trimmedReview = review.length > 150 ? `${review.substring(0, 150)}...` : review;
+    return <div>{trimmedReview}</div>;
   };
 
-  const getReviewText = (hotel, type) => {
-    const review = type === 'positive' ? hotel.positive_review : hotel.negative_review;
-    if (!review) return null;
-
-    if (hotel.recent_reviews && hotel.recent_reviews.length > 0) {
-      const recentReview = hotel.recent_reviews[0];
-      return type === 'positive' ? recentReview.positive : recentReview.negative;
-    }
-
-    return review;
-  };
+  // Render the list of hotels
+  const renderHotels = () => (
+    <div className="hotel-grid">
+      {hotels.map((hotel, index) => (
+        <div key={`${hotel.name}-${index}`} className="hotel-card" onClick={() => fetchSimilarHotels(hotel.name)}>
+          <h3>{hotel.name}</h3>
+          <p><MapPin size={14} /> {hotel.location}</p>
+          <p><Star size={14} /> {hotel.rating ? hotel.rating.toFixed(1) : 'N/A'}</p>
+          <p><List size={14} /> {hotel.total_reviews} Reviews</p>
+          <div>
+            <ThumbsUp size={14} /> {renderReviewContent(hotel.positive_review)}
+          </div>
+          <div>
+            <ThumbsDown size={14} /> {renderReviewContent(hotel.negative_review)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
-    <div className="container">
-      <header className="header">
+    <div>
+      <header>
         <h1>TravelBuddy</h1>
-        <p>Intelligent Hotel Search & Destination Insights</p>
+        <p>Your personalized travel companion</p>
       </header>
 
-      <div className="search-container">
-        <form onSubmit={handleSearch}>
-          <div className="search-wrapper">
-            <input
-              type="text"
-              placeholder="Search hotels, destinations, or amenities..."
-              className="search-input"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <button type="submit" className="search-button">
-              <Search className="search-icon" size={20} />
-            </button>
-          </div>
+      <div>
+        <form onSubmit={(e) => { e.preventDefault(); handleTagClick(searchQuery); }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search destinations or tags..."
+          />
+          <button type="submit">
+            <Search size={20} />
+          </button>
         </form>
 
-        <div className="tags-section">
-          <h3 className="tags-title">Popular Destinations</h3>
-          <div className="tags-container">
-            {locationTags.map((tag) => (
-              <button
-                key={tag}
-                className="tag-button"
-                onClick={() => handleTagClick(tag)}
-              >
-                <MapPin size={14} className="mr-1" />
-                {tag}
-              </button>
-            ))}
-          </div>
+        <div>
+          <h3>Popular Destinations</h3>
+          {locationTags.map((tag) => (
+            <button key={tag} onClick={() => handleTagClick(tag)}>
+              {tag}
+            </button>
+          ))}
         </div>
 
-        <div className="tags-section">
-          <h3 className="tags-title">Search by Type</h3>
-          <div className="tags-container">
-            {featureTags.map((tag) => (
-              <button
-                key={tag}
-                className="tag-button"
-                onClick={() => handleTagClick(tag)}
-              >
-                <Tag size={14} className="mr-1" />
-                {tag}
-              </button>
-            ))}
-          </div>
+        <div>
+          <h3>Travel Types</h3>
+          {featureTags.map((tag) => (
+            <button key={tag} onClick={() => handleTagClick(tag)}>
+              {tag}
+            </button>
+          ))}
         </div>
       </div>
 
-      {loading && (
-        <div className="loading">
-          Loading hotels...
-        </div>
-      )}
+      {loading && <p>Loading...</p>}
+      {error && <p>{error}</p>}
 
-      {error && (
-        <div className="error">
-          {error}
-        </div>
-      )}
-
-      <div className="hotel-grid">
-        {hotels.map((hotel, index) => (
-          <div
-            key={`${hotel.name}-${index}`}
-            className="hotel-card"
-            onClick={() => handleHotelClick(hotel.name)}
-          >
-            <div className="hotel-header">
-              <h2 className="hotel-name">{hotel.name}</h2>
-              <div className="rating">
-                <Star className="fill-current" size={20} />
-                <span>{typeof hotel.rating === 'number' ? hotel.rating.toFixed(1) : 'N/A'}</span>
-              </div>
-            </div>
-
-            <div className="location">
-              <MapPin size={18} />
-              <span>{hotel.location}</span>
-            </div>
-
-            <div className="reviews-count">
-              <List size={18} />
-              <span>{hotel.total_reviews || 0} Reviews</span>
-            </div>
-
-            {getReviewText(hotel, 'positive') && (
-              <div className="review-section highlights">
-                <div className="review-header">
-                  <ThumbsUp size={18} />
-                  <span>Highlights</span>
-                </div>
-                {renderReviewContent(getReviewText(hotel, 'positive'))}
-              </div>
-            )}
-
-            {getReviewText(hotel, 'negative') && (
-              <div className="review-section consider">
-                <div className="review-header">
-                  <ThumbsDown size={18} />
-                  <span>Consider</span>
-                </div>
-                {renderReviewContent(getReviewText(hotel, 'negative'))}
-              </div>
-            )}
-
-            {hotel.tags && (
-              <div className="hotel-tags">
-                <div className="review-header">
-                  <Tag size={18} />
-                  <span>Features</span>
-                </div>
-                <div className="tags-content">
-                  {hotel.tags.split(',').map((tag, idx) => (
-                    <span
-                      key={idx}
-                      className="hotel-tag"
-                      onClick={() => handleTagClick(tag.trim())}
-                    >
-                      {tag.trim()}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      {hotels.length > 0 ? renderHotels() : <p>No hotels to display.</p>}
 
       {similarHotels.length > 0 && (
-        <div className="similar-hotels-section">
-          <h3 className="section-title">Similar Hotels</h3>
-          <div className="hotel-grid">
-            {similarHotels.map((hotel, index) => (
-              <div
-                key={`similar-${hotel.name}-${index}`}
-                className="hotel-card"
-                onClick={() => handleHotelClick(hotel.name)}
-              >
-                <h2 className="hotel-name">{hotel.name}</h2>
-                <span>{hotel.location}</span>
-              </div>
-            ))}
-          </div>
+        <div>
+          <h3>Similar Hotels</h3>
+          {similarHotels.map((hotel) => (
+            <div key={hotel.name}>
+              <h4>{hotel.name}</h4>
+              <p>{hotel.location}</p>
+            </div>
+          ))}
         </div>
       )}
     </div>
