@@ -5,7 +5,9 @@ const TravelBuddy = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [hotels, setHotels] = useState([]);
+  const [similarHotels, setSimilarHotels] = useState([]);
   const [error, setError] = useState(null);
+  const [selectedNationality, setSelectedNationality] = useState('');
 
   // Location tags
   const locationTags = ['Amsterdam', 'London', 'Barcelona', 'Vienna', 'Milan', 'Paris'];
@@ -31,7 +33,7 @@ const TravelBuddy = () => {
       const response = await fetch(`http://127.0.0.1:5000/api/recommendations/location/${encodeURIComponent(searchQuery)}`);
       const result = await response.json();
       console.log('Search results:', result);
-      
+
       if (result.status === 'success' && result.recommended_hotels?.length > 0) {
         setHotels(result.recommended_hotels);
       } else {
@@ -51,12 +53,23 @@ const TravelBuddy = () => {
     setError(null);
     
     try {
-      const endpoint = locationTags.includes(tag) ? 'location' : 'tags';
-      const response = await fetch(`http://127.0.0.1:5000/api/recommendations/${endpoint}/${encodeURIComponent(tag)}`);
+      let endpoint;
+      if (locationTags.includes(tag)) {
+        endpoint = `location/${encodeURIComponent(tag)}`;
+      } else if (featureTags.includes(tag)) {
+        endpoint = `tags/${encodeURIComponent(tag)}`;
+      } else {
+        endpoint = `personalized?trip_type=${encodeURIComponent(tag)}`;
+      }
+  
+      const response = await fetch(`http://127.0.0.1:5000/api/recommendations/${endpoint}`);
       const result = await response.json();
-      console.log(`${endpoint} search results:`, result);
-
-      if (result.status === 'success' && result.recommended_hotels?.length > 0) {
+  
+      if (result.status === 'error') {
+        throw new Error(result.message);
+      }
+  
+      if (result.recommended_hotels?.length > 0) {
         setHotels(result.recommended_hotels);
       } else {
         setHotels([]);
@@ -70,6 +83,26 @@ const TravelBuddy = () => {
     }
   };
 
+  const getSimilarHotels = async (hotelName) => {
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:5000/api/recommendations/similar/${encodeURIComponent(hotelName)}`
+      );
+      const result = await response.json();
+
+      if (result.status === 'success' && result.similar_hotels?.length > 0) {
+        setSimilarHotels(result.similar_hotels);
+      }
+    } catch (err) {
+      console.error('Error fetching similar hotels:', err);
+    }
+  };
+
+  const handleHotelClick = async (hotelName) => {
+    await getSimilarHotels(hotelName);
+    // You might want to show these in a modal or a separate section
+  };
+
   const renderReviewContent = (review) => {
     if (typeof review === 'string' && review.trim() !== '') {
       const trimmedReview = review.length > 300 ? `${review.substring(0, 300)}...` : review;
@@ -81,13 +114,12 @@ const TravelBuddy = () => {
   const getReviewText = (hotel, type) => {
     const review = type === 'positive' ? hotel.positive_review : hotel.negative_review;
     if (!review) return null;
-    
-    // If review is inside a recent_reviews array
+
     if (hotel.recent_reviews && hotel.recent_reviews.length > 0) {
       const recentReview = hotel.recent_reviews[0];
       return type === 'positive' ? recentReview.positive : recentReview.negative;
     }
-    
+
     return review;
   };
 
@@ -118,8 +150,8 @@ const TravelBuddy = () => {
           <h3 className="tags-title">Popular Destinations</h3>
           <div className="tags-container">
             {locationTags.map((tag) => (
-              <button 
-                key={tag} 
+              <button
+                key={tag}
                 className="tag-button"
                 onClick={() => handleTagClick(tag)}
               >
@@ -134,8 +166,8 @@ const TravelBuddy = () => {
           <h3 className="tags-title">Search by Type</h3>
           <div className="tags-container">
             {featureTags.map((tag) => (
-              <button 
-                key={tag} 
+              <button
+                key={tag}
                 className="tag-button"
                 onClick={() => handleTagClick(tag)}
               >
@@ -152,7 +184,7 @@ const TravelBuddy = () => {
           Loading hotels...
         </div>
       )}
-      
+
       {error && (
         <div className="error">
           {error}
@@ -161,7 +193,11 @@ const TravelBuddy = () => {
 
       <div className="hotel-grid">
         {hotels.map((hotel, index) => (
-          <div key={`${hotel.name}-${index}`} className="hotel-card">
+          <div
+            key={`${hotel.name}-${index}`}
+            className="hotel-card"
+            onClick={() => handleHotelClick(hotel.name)}
+          >
             <div className="hotel-header">
               <h2 className="hotel-name">{hotel.name}</h2>
               <div className="rating">
@@ -208,8 +244,8 @@ const TravelBuddy = () => {
                 </div>
                 <div className="tags-content">
                   {hotel.tags.split(',').map((tag, idx) => (
-                    <span 
-                      key={idx} 
+                    <span
+                      key={idx}
                       className="hotel-tag"
                       onClick={() => handleTagClick(tag.trim())}
                     >
@@ -222,6 +258,24 @@ const TravelBuddy = () => {
           </div>
         ))}
       </div>
+
+      {similarHotels.length > 0 && (
+        <div className="similar-hotels-section">
+          <h3 className="section-title">Similar Hotels</h3>
+          <div className="hotel-grid">
+            {similarHotels.map((hotel, index) => (
+              <div
+                key={`similar-${hotel.name}-${index}`}
+                className="hotel-card"
+                onClick={() => handleHotelClick(hotel.name)}
+              >
+                <h2 className="hotel-name">{hotel.name}</h2>
+                <span>{hotel.location}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
