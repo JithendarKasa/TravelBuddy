@@ -1,6 +1,8 @@
 from pymongo import MongoClient
 from neo4j import GraphDatabase
 import logging
+import redis
+import json
 from datetime import datetime
 
 
@@ -13,51 +15,57 @@ class TravelBuddyQueries:
         # Neo4j connection
         self.neo4j_driver = GraphDatabase.driver(
             "bolt://localhost:7687",
-            auth=("neo4j", "moderndbproject"),
-            database="travelbuddy"
+            auth=("neo4j", "moderndbproject")
         )
+
+        self.redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
 
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
+    
+    
     def search_hotels(self, search_text='', features=None, limit=10):
         """
-        Combined search for both text and features
+        Enhanced search for hotels using text and tags with optimized pipelines.
         """
         try:
             # Start building the match conditions
-            match_conditions = []
             
-            # Add text search conditions if search text is provided
+            cache_key = f"search:{search_text}:{','.join(features or [])}:{limit}"
+            cached_result = self.redis_client.get(cache_key)
+
+            if cached_result:
+                self.logger.info("Cache hit for search query")
+                return json.loads(cached_result)  # Return cached result
+
+            self.logger.info("Cache miss for search query, querying database")
+
+            # Database search logic
+            match_conditions = []
             if search_text:
                 text_keywords = search_text.lower().split()
-                text_conditions = []
-                for keyword in text_keywords:
-                    text_conditions.append({
+                text_conditions = [
+                    {
                         "$or": [
-                            {"Positive_Review": {"$regex": f"\\b{keyword}\\b", "$options": "i"}},
-                            {"Negative_Review": {"$regex": f"\\b{keyword}\\b", "$options": "i"}},
-                            # For location/city searches, check the Hotel_Address field
-                            {"Hotel_Address": {"$regex": f"\\b{keyword}\\b", "$options": "i"}},
-                            {"Hotel_Name": {"$regex": f"\\b{keyword}\\b", "$options": "i"}},
-                            {"Tags": {"$regex": f"\\b{keyword}\\b", "$options": "i"}}
+                            {"Positive_Review": {"$regex": keyword, "$options": "i"}},
+                            {"Negative_Review": {"$regex": keyword, "$options": "i"}},
+                            {"Tags": {"$regex": keyword, "$options": "i"}}
                         ]
-                    })
+                    }
+                    for keyword in text_keywords
+                ]
                 if text_conditions:
                     match_conditions.append({"$and": text_conditions})
 
-            # Add feature search conditions if features are provided
-            if features and features[0]:  # Check if features list is not empty and first element is not empty
-                feature_conditions = []
-                for feature in features:
-                    if feature.strip():  # Only add non-empty features
-                        feature_conditions.append({
-                            "Tags": {"$regex": feature.strip(), "$options": "i"}
-                        })
+            if features and any(features):
+                feature_conditions = [
+                    {"Tags": {"$regex": feature.strip(), "$options": "i"}}
+                    for feature in features if feature.strip()
+                ]
                 if feature_conditions:
                     match_conditions.append({"$or": feature_conditions})
 
-            # Build the final match query
             match_query = {"$and": match_conditions} if match_conditions else {}
 
             pipeline = [
@@ -136,23 +144,27 @@ class TravelBuddyQueries:
                         }
                     }
                 },
+                {
+                    "$project": {
+                        "name": 1,
+                        "location": 1,
+                        "averageReviewScore": 1,
+                        "reviewCount": 1,
+                        "highlights": 1,
+                        "considerations": 1,
+                        "tags": {
+                            "$setUnion": ["$tags"]
+                        }
+                    }
+                },
                 {"$sort": {"averageReviewScore": -1}},
                 {"$limit": limit}
             ]
 
-            results = list(self.db.HotelReviews.aggregate(pipeline))
-
-            # Clean up the results
-            for hotel in results:
-                # Clean up and deduplicate tags
-                hotel['tags'] = list(set([
-                    tag.strip()
-                    for tags in hotel['tags']
-                    for tag in (tags.split(',') if tags else [])
-                    if tag.strip()
-                ]))
-
+            results = list(self.db.travelbuddy.aggregate(pipeline))
+            self.redis_client.setex(cache_key, 3600, json.dumps(results))  # Cache for 1 hour
             return results
+
 
         except Exception as e:
             self.logger.error(f"Error in search_hotels: {str(e)}")
