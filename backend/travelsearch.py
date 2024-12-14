@@ -1,6 +1,8 @@
 from pymongo import MongoClient
 from neo4j import GraphDatabase
 import logging
+import json
+import redis
 from datetime import datetime
 
 
@@ -17,6 +19,8 @@ class TravelBuddyQueries:
             database="travelbuddy"
         )
 
+        self.redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
+
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
@@ -26,6 +30,15 @@ class TravelBuddyQueries:
         """
         try:
             # Start building the match conditions
+            cache_key = f"search:{search_text}:{','.join(features or [])}:{limit}"
+            cached_result = self.redis_client.get(cache_key)
+
+            if cached_result:
+                self.logger.info("Cache hit for search query")
+                return json.loads(cached_result)  # Return cached result
+
+            self.logger.info("Cache miss for search query, querying database")
+
             match_conditions = []
             
             # Add text search conditions if search text is provided
@@ -151,6 +164,8 @@ class TravelBuddyQueries:
                     for tag in (tags.split(',') if tags else [])
                     if tag.strip()
                 ]))
+
+            self.redis_client.setex(cache_key, 3600, json.dumps(results))  # Cache for 1 hour
 
             return results
 
