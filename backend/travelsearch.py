@@ -168,6 +168,16 @@ class TravelBuddyQueries:
             ]
 
             results = list(self.db.travelbuddy.aggregate(pipeline))
+            # Clean up the results
+            for hotel in results:
+                # Clean up and deduplicate tags
+                hotel['tags'] = list(set([
+                    tag.strip()
+                    for tags in hotel['tags']
+                    for tag in (tags.split(',') if tags else [])
+                    if tag.strip()
+                ]))
+
             # self.redis_client.setex(cache_key, 3600, json.dumps(results))  # Cache for 1 hour
             return results
 
