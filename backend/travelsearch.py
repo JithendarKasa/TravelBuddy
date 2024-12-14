@@ -15,8 +15,14 @@ class TravelBuddyQueries:
         # Neo4j connection
         self.neo4j_driver = GraphDatabase.driver(
             "bolt://localhost:7687",
-            auth=("neo4j", "moderndbproject")
+            auth=("neo4j", "moderndbproject"),
+            database = "travelbuddy"
         )
+        
+        # self.neo4j_driver = GraphDatabase.driver(
+        #     "bolt://localhost:7687",
+        #     auth=("neo4j", "moderndbproject")
+        # )
 
         self.redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
 
