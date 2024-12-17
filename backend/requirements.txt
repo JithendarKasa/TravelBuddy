@@ -1,0 +1,5 @@
+pymongo
+flask
+neo4j
+redis
+flask-cors
