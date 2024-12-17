@@ -262,11 +262,19 @@ ul li {
   font-size: 1.875rem;
   font-weight: 700;
 }
-
 .hotel-grid {
   display: grid;
-  grid-template-columns: 1fr; /* Single column on smaller screens */
-  gap: 1.5rem; /* Spacing between grid items */
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.space-y-6 > * {
+  margin-top: 1.5rem;
+}
+
+.space-y-6 > :first-child {
+  margin-top: 0;
 }
 
 @media (min-width: 768px) {

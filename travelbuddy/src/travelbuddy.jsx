@@ -4,7 +4,7 @@ import DestinationInsights from './components/DestinationInsights';
 import RelatedDestinations from './components/RelatedDestinations';
 import ConnectedHotels from './components/ConnectedHotels';
 
-const API_BASE_URL = 'http://127.0.0.1:5000/api';
+const API_BASE_URL = 'http://127.0.0.1:5000';
 
 const TravelBuddy = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,7 +76,13 @@ const TravelBuddy = () => {
 
   // Handle hotel card click
   const handleHotelClick = (hotel) => {
-    const city = hotel.location.split(',')[0].trim();
+    // const city = hotel.location.split(',')[0].trim();
+    // setSelectedCity(city);
+    // setShowDestinationInfo(true);
+    console.log('Hotel clicked:', hotel);
+    const parts = hotel.location.split(' ');
+    const majorCities = ['Paris', 'London', 'Rome', 'Barcelona', 'Vienna', 'Amsterdam'];
+    const city = parts.find(part => majorCities.includes(part)) || parts[0];
     setSelectedCity(city);
     setShowDestinationInfo(true);
   };
